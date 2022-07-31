@@ -1,14 +1,15 @@
 {
   "name": "lnsocket-proxy",
   "version": "0.0.1",
-  "description": "A proxy websocket server for lnsocket connections to core lightning nodes",
+  "description": "A simple WebSocket server to proxy lnsocket frames to Core Lightning nodes over the Lightning Network",
   "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "npm run build && node dist/index.js",
     "build": "tsc --project ./"
   },
-  "author": "",
+  "author": "Aaron Barnard",
+  "license": "MIT",
   "dependencies": {
     "dotenv": "^10.0.0",
     "rate-limiter-flexible": "^2.3.8",
