@@ -12,10 +12,6 @@ import {
 async function start() {
   const app = uWS.App()
 
-  app.get('/*', (res, req) => {
-    res.end('hello world')
-  })
-
   // ==== WEBSOCKETS V0 ==== //
   app.ws('/:node_ip', {
     // OPTIONS
