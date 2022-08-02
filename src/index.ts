@@ -12,6 +12,10 @@ import {
 async function start() {
   const app = uWS.App()
 
+  app.get('/*', (res, req) => {
+    res.end('hello world')
+  })
+
   // ==== WEBSOCKETS V0 ==== //
   app.ws('/:node_ip', {
     // OPTIONS
@@ -28,7 +32,9 @@ async function start() {
     close: handleClose
   })
 
-  app.listen(PORT, () => console.log(`server listening on port ${PORT}`))
+  app.listen('localhost', PORT, () =>
+    console.log(`server listening on port ${PORT}`)
+  )
 }
 
 start()
