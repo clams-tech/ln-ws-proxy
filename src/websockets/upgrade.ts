@@ -5,7 +5,7 @@ import { arrayBufferToString } from '../utils'
 import { Socket } from 'net'
 
 const connectionsRateLimiter = new RateLimiterMemory({
-  points: 3, // connection attempts
+  points: 10, // connection attempts
   duration: 1, // per second per ip
   execEvenly: false, // Do not delay actions evenly
   blockDuration: 0, // Do not block if consumed more than points
@@ -39,6 +39,10 @@ async function handleUpgrade(
 
   if (!isIP(nodeIP)) {
     res.cork(() => {
+      if (upgradeAborted.aborted) {
+        return
+      }
+
       res.writeStatus('400 Bad Request').end()
     })
   }
@@ -46,18 +50,14 @@ async function handleUpgrade(
   try {
     await connectionsRateLimiter.consume(ip)
   } catch {
-    if (upgradeAborted.aborted) {
-      return
-    }
-
     res.cork(() => {
+      if (upgradeAborted.aborted) {
+        return
+      }
+
       res.writeStatus('429 Too Many Requests').end()
     })
 
-    return
-  }
-
-  if (upgradeAborted.aborted) {
     return
   }
 
@@ -70,20 +70,29 @@ async function handleUpgrade(
 
       connection.on('connect', () => resolve(connection))
 
-      connection.on('error', () => {
-        res.cork(() => {
-          res.writeStatus('404 Not Found').end()
-        })
-
-        reject()
+      connection.on('error', err => {
+        reject(err)
       })
     })
-  } catch {
-    // connection closed
+  } catch (error) {
+    res.cork(() => {
+      if (upgradeAborted.aborted) {
+        return
+      }
+
+      res
+        .writeStatus('404 Not Found')
+        .end((error as { message: string }).message)
+    })
+
     return
   }
 
   res.cork(() => {
+    if (upgradeAborted.aborted) {
+      return
+    }
+
     // upgrade to WebSocket and attach additional data
     res.upgrade(
       {
