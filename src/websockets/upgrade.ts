@@ -33,6 +33,8 @@ async function handleUpgrade(
     res.cork(() => {
       res.writeStatus('400 Bad Request').end()
     })
+
+    return
   }
 
   const [nodeIP, nodePort = '9735'] = nodeHost.split(':')
@@ -45,6 +47,8 @@ async function handleUpgrade(
 
       res.writeStatus('400 Bad Request').end()
     })
+
+    return
   }
 
   try {
