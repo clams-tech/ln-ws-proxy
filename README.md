@@ -13,6 +13,7 @@ The code is inspired by and functions mostly the same as [ln-ws-proxy](https://g
 The WebSocket server is setup to run on port 3000, but can be modified by creating a .env file and placing it in the root directory with the following var:
 
 ```
+HOST=localhost
 PORT=3000
 ```
 
