@@ -9,6 +9,10 @@ async function handleOpen(ws: WebSocket): Promise<void> {
   nodeSocket.on('data', data => {
     sendWsResponse({ ws, data })
   })
+
+  nodeSocket.on('close', () => {
+    ws.close()
+  })
 }
 
 export default handleOpen

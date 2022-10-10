@@ -1,7 +1,7 @@
 import net, { isIP } from 'net'
 import { HttpResponse, HttpRequest, us_socket_context_t } from 'uWebSockets.js'
 import { RateLimiterMemory } from 'rate-limiter-flexible'
-import { arrayBufferToString } from '../utils'
+import { arrayBufferToString, safetyPatchRes } from '../utils'
 import { Socket } from 'net'
 
 const connectionsRateLimiter = new RateLimiterMemory({
@@ -17,17 +17,14 @@ async function handleUpgrade(
   req: HttpRequest,
   context: us_socket_context_t
 ): Promise<void> {
-  const upgradeAborted = { aborted: false }
+  safetyPatchRes(res)
+
   const secWebSocketKey = req.getHeader('sec-websocket-key')
   const secWebSocketProtocol = req.getHeader('sec-websocket-protocol')
   const secWebSocketExtensions = req.getHeader('sec-websocket-extensions')
   const origin = req.getHeader('origin')
   const ip = arrayBufferToString(res.getRemoteAddressAsText())
   const nodeHost = req.getParameter(0)
-
-  res.onAborted(() => {
-    upgradeAborted.aborted = true
-  })
 
   if (!nodeHost) {
     res.cork(() => {
@@ -41,10 +38,6 @@ async function handleUpgrade(
 
   if (!isIP(nodeIP)) {
     res.cork(() => {
-      if (upgradeAborted.aborted) {
-        return
-      }
-
       res.writeStatus('400 Bad Request').end()
     })
 
@@ -55,10 +48,6 @@ async function handleUpgrade(
     await connectionsRateLimiter.consume(ip)
   } catch {
     res.cork(() => {
-      if (upgradeAborted.aborted) {
-        return
-      }
-
       res.writeStatus('429 Too Many Requests').end()
     })
 
@@ -80,10 +69,6 @@ async function handleUpgrade(
     })
   } catch (error) {
     res.cork(() => {
-      if (upgradeAborted.aborted) {
-        return
-      }
-
       res
         .writeStatus('404 Not Found')
         .end((error as { message: string }).message)
@@ -93,10 +78,6 @@ async function handleUpgrade(
   }
 
   res.cork(() => {
-    if (upgradeAborted.aborted) {
-      return
-    }
-
     // upgrade to WebSocket and attach additional data
     res.upgrade(
       {
