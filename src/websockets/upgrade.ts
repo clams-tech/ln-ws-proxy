@@ -27,6 +27,8 @@ async function handleUpgrade(
   const nodeHost = req.getParameter(0)
 
   if (!nodeHost) {
+    if (res.done) return
+
     res.cork(() => {
       res.writeStatus('400 Bad Request').end()
     })
@@ -37,6 +39,8 @@ async function handleUpgrade(
   const [nodeIP, nodePort = '9735'] = nodeHost.split(':')
 
   if (!isIP(nodeIP)) {
+    if (res.done) return
+
     res.cork(() => {
       res.writeStatus('400 Bad Request').end()
     })
@@ -47,6 +51,8 @@ async function handleUpgrade(
   try {
     await connectionsRateLimiter.consume(ip)
   } catch {
+    if (res.done) return
+
     res.cork(() => {
       res.writeStatus('429 Too Many Requests').end()
     })
@@ -68,6 +74,8 @@ async function handleUpgrade(
       })
     })
   } catch (error) {
+    if (res.done) return
+
     res.cork(() => {
       res
         .writeStatus('404 Not Found')
@@ -76,6 +84,8 @@ async function handleUpgrade(
 
     return
   }
+
+  if (res.done) return
 
   res.cork(() => {
     // upgrade to WebSocket and attach additional data
