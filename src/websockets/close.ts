@@ -7,7 +7,7 @@ function handleClose(ws: WebSocket): void {
   // close connection to node
   const { nodeSocket } = ws as WebSocket & { nodeSocket: Socket }
   nodeSocket.removeAllListeners()
-  nodeSocket.end()
+  nodeSocket.destroy()
 }
 
 export default handleClose
