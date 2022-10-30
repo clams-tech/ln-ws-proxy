@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv'
+dotenv.config()
+
 // load env vars
 export const HOST = process.env.HOST || 'localhost'
 export const PORT = Number(process.env.PORT) || 3000
