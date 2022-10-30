@@ -3,6 +3,7 @@ import { HttpResponse, HttpRequest, us_socket_context_t } from 'uWebSockets.js'
 import { RateLimiterMemory } from 'rate-limiter-flexible'
 import { arrayBufferToString, safetyPatchRes } from '../utils'
 import { Socket } from 'net'
+import { RESTRICT_ORIGINS } from '../constants'
 
 const connectionsRateLimiter = new RateLimiterMemory({
   points: 10, // connection attempts
@@ -25,6 +26,15 @@ async function handleUpgrade(
   const origin = req.getHeader('origin')
   const ip = arrayBufferToString(res.getRemoteAddressAsText())
   const nodeHost = req.getParameter(0)
+
+  if (RESTRICT_ORIGINS && !RESTRICT_ORIGINS.includes(origin)) {
+    res.cork(() => {
+      if (res.done) return
+      res.writeStatus('400 Bad Request').end()
+    })
+
+    return
+  }
 
   if (!nodeHost) {
     if (res.done) return
