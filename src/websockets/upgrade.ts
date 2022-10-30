@@ -27,8 +27,6 @@ async function handleUpgrade(
   const ip = arrayBufferToString(res.getRemoteAddressAsText())
   const nodeHost = req.getParameter(0)
 
-  console.log({ RESTRICT_ORIGINS, origin })
-
   if (RESTRICT_ORIGINS && !RESTRICT_ORIGINS.includes(origin)) {
     res.cork(() => {
       if (res.done) return
