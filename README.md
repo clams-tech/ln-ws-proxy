@@ -15,6 +15,7 @@ The WebSocket server is setup to run on port 3000, but can be modified by creati
 ```
 HOST=localhost
 PORT=3000
+RESTRICT_ORIGINS=https://yourapp.com,https://staging.yourapp.com
 ```
 
 ## Starting the server
