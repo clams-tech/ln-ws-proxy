@@ -1,5 +1,6 @@
 import uWS from 'uWebSockets.js'
 import { HOST, PORT, MAX_SOCKET_BACKPRESSURE_BYTES } from './constants'
+import { restAPI, setOptionsHeaders } from './rest'
 
 import {
   handleMessage,
@@ -27,6 +28,10 @@ async function start() {
     drain: handleDrain,
     close: handleClose
   })
+
+  setOptionsHeaders(app)
+
+  restAPI(app)
 
   app.listen(HOST, PORT, () =>
     console.log(`server listening on ${HOST}:${PORT}`)

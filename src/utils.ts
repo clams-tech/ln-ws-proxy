@@ -1,7 +1,12 @@
 import { HttpResponse, RecognizedString, WebSocket } from 'uWebSockets.js'
 import { filter, take } from 'rxjs/operators'
+import https from 'https'
 import { webSocketDrain$ } from './streams'
-import { MAX_SOCKET_BACKPRESSURE_BYTES } from './constants'
+
+import {
+  ACCESS_CONTROL_ALLOW_HEADERS,
+  MAX_SOCKET_BACKPRESSURE_BYTES
+} from './constants'
 
 export const sendWsResponse = ({
   ws,
@@ -127,4 +132,47 @@ export const safetyPatchRes = (res: HttpResponse): void => {
     }
     return res._writeStatus(status)
   }
+}
+
+export function get(url: string): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, res => {
+        let data = ''
+
+        res.on('data', chunk => {
+          data += chunk
+        })
+
+        res.on('end', () => {
+          const result = JSON.parse(data)
+          resolve(result)
+        })
+      })
+      .on('error', err => {
+        reject(err)
+      })
+  })
+}
+
+export function sendRestResponse({
+  res,
+  status,
+  data,
+  origin
+}: {
+  res: HttpResponse
+  status: string
+  data: string
+  origin: string
+}): void {
+  res.cork(() => {
+    res.writeStatus(status)
+    res
+      .writeHeader('Content-Type', 'application/json')
+      .writeHeader('Access-Control-Allow-Origin', origin)
+      .writeHeader('Access-Control-Allow-Credentials', 'true')
+      .writeHeader('Access-Control-Allow-Headers', ACCESS_CONTROL_ALLOW_HEADERS)
+      .end(data)
+  })
 }
