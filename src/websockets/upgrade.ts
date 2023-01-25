@@ -1,4 +1,5 @@
 import net, { isIP } from 'net'
+import dns from 'dns/promises'
 import { HttpResponse, HttpRequest, us_socket_context_t } from 'uWebSockets.js'
 import { RateLimiterMemory } from 'rate-limiter-flexible'
 import { arrayBufferToString, safetyPatchRes } from '../utils'
@@ -12,6 +13,15 @@ const connectionsRateLimiter = new RateLimiterMemory({
   blockDuration: 0, // Do not block if consumed more than points
   keyPrefix: 'ws-connection-limit-ip' // must be unique for limiters with different purpose
 })
+
+async function lookupHost(host: string): Promise<string> {
+  try {
+    const { address } = await dns.lookup(host)
+    return address
+  } catch (error) {
+    return ''
+  }
+}
 
 async function handleUpgrade(
   res: HttpResponse,
@@ -30,7 +40,7 @@ async function handleUpgrade(
   if (RESTRICT_ORIGINS && !RESTRICT_ORIGINS.includes(origin)) {
     res.cork(() => {
       if (res.done) return
-      res.writeStatus('400 Bad Request').end()
+      res.writeStatus('400 Bad Request').end('Invalid origin')
     })
 
     return
@@ -40,22 +50,34 @@ async function handleUpgrade(
     if (res.done) return
 
     res.cork(() => {
-      res.writeStatus('400 Bad Request').end()
+      res
+        .writeStatus('400 Bad Request')
+        .end('Invalid node host, must be a valid IP or Domain')
     })
 
     return
   }
 
-  const [nodeIP, nodePort = '9735'] = nodeHost.split(':')
+  const [hostname, nodePort = '9735'] = nodeHost.split(':')
 
-  if (!isIP(nodeIP)) {
-    if (res.done) return
+  let nodeIP: string
 
-    res.cork(() => {
-      res.writeStatus('400 Bad Request').end()
-    })
+  if (isIP(hostname)) {
+    nodeIP = hostname
+  } else {
+    nodeIP = await lookupHost(hostname)
 
-    return
+    if (!nodeIP) {
+      if (res.done) return
+
+      res.cork(() => {
+        res
+          .writeStatus('400 Bad Request')
+          .end('Invalid node host, must be a valid IP or Domain')
+      })
+
+      return
+    }
   }
 
   try {
