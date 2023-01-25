@@ -1,6 +1,6 @@
 {
   "name": "lnsocket-proxy",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "A simple WebSocket server to proxy lnsocket frames to Core Lightning nodes over the Lightning Network",
   "main": "dist/index.js",
   "scripts": {
