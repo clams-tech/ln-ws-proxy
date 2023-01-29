@@ -5,6 +5,7 @@ import { RateLimiterMemory } from 'rate-limiter-flexible'
 import { arrayBufferToString, safetyPatchRes } from '../utils'
 import { Socket } from 'net'
 import { RESTRICT_ORIGINS } from '../constants'
+import { connections$ } from '../streams'
 
 const connectionsRateLimiter = new RateLimiterMemory({
   points: 10, // connection attempts
@@ -132,6 +133,9 @@ async function handleUpgrade(
       secWebSocketExtensions,
       context
     )
+
+    connections$.next(connections$.value + 1)
+    console.log(`connections: ${connections$.value}`)
   })
 }
 
