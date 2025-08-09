@@ -1,10 +1,15 @@
-import net, { isIP } from 'net'
-import dns from 'dns/promises'
+import net from 'net'
 import { HttpResponse, HttpRequest, us_socket_context_t } from 'uWebSockets.js'
+import { SocksClient, SocksClientOptions } from 'socks'
 import { RateLimiterMemory } from 'rate-limiter-flexible'
 import { arrayBufferToString, safetyPatchRes } from '../utils'
 import { Socket } from 'net'
 import { RESTRICT_ORIGINS } from '../constants'
+
+import {
+  SocksCommandOption,
+  SocksProxyType
+} from 'socks/typings/common/constants'
 
 const connectionsRateLimiter = new RateLimiterMemory({
   points: 10, // connection attempts
@@ -14,13 +19,8 @@ const connectionsRateLimiter = new RateLimiterMemory({
   keyPrefix: 'ws-connection-limit-ip' // must be unique for limiters with different purpose
 })
 
-async function lookupHost(host: string): Promise<string> {
-  try {
-    const { address } = await dns.lookup(host)
-    return address
-  } catch (error) {
-    return ''
-  }
+function isTor(address: string): boolean {
+  return address.endsWith('.onion')
 }
 
 async function handleUpgrade(
@@ -36,6 +36,9 @@ async function handleUpgrade(
   const origin = req.getHeader('origin')
   const ip = arrayBufferToString(res.getRemoteAddressAsText())
   const nodeHost = req.getParameter(0)
+
+  const torProxyHost = process.env.TOR_PROXY_HOST || 'localhost'
+  const torProxyPort = process.env.TOR_PROXY_PORT || '9050'
 
   if (RESTRICT_ORIGINS && !RESTRICT_ORIGINS.includes(origin)) {
     res.cork(() => {
@@ -60,26 +63,6 @@ async function handleUpgrade(
 
   const [hostname, nodePort = '9735'] = nodeHost.split(':')
 
-  let nodeIP: string
-
-  if (isIP(hostname)) {
-    nodeIP = hostname
-  } else {
-    nodeIP = await lookupHost(hostname)
-
-    if (!nodeIP) {
-      if (res.done) return
-
-      res.cork(() => {
-        res
-          .writeStatus('400 Bad Request')
-          .end('Invalid node host, must be a valid IP or Domain')
-      })
-
-      return
-    }
-  }
-
   try {
     await connectionsRateLimiter.consume(ip)
   } catch {
@@ -94,27 +77,48 @@ async function handleUpgrade(
 
   let nodeSocket: Socket
 
-  // create connection to ln node
-  try {
-    nodeSocket = await new Promise((resolve, reject) => {
-      const connection = net.createConnection(parseInt(nodePort), nodeIP)
+  if (isTor(hostname)) {
+    // create Tor connections
+    const commandOption: SocksCommandOption = 'connect'
+    const proxyType: SocksProxyType = 5
 
-      connection.on('connect', () => resolve(connection))
+    const sockOptions: SocksClientOptions = {
+      proxy: {
+        host: torProxyHost,
+        port: parseInt(torProxyPort),
+        type: proxyType
+      },
+      command: commandOption,
+      destination: {
+        host: hostname,
+        port: parseInt(nodePort)
+      }
+    }
 
-      connection.on('error', err => {
-        reject(err)
+    const connection = await SocksClient.createConnection(sockOptions)
+    nodeSocket = connection.socket
+  } else {
+    try {
+      nodeSocket = await new Promise((resolve, reject) => {
+        const connection = net.createConnection(parseInt(nodePort), hostname)
+
+        connection.on('connect', () => resolve(connection))
+
+        connection.on('error', err => {
+          reject(err)
+        })
       })
-    })
-  } catch (error) {
-    if (res.done) return
+    } catch (error) {
+      if (res.done) return
 
-    res.cork(() => {
-      res
-        .writeStatus('404 Not Found')
-        .end((error as { message: string }).message)
-    })
+      res.cork(() => {
+        res
+          .writeStatus('404 Not Found')
+          .end((error as { message: string }).message)
+      })
 
-    return
+      return
+    }
   }
 
   if (res.done) return
